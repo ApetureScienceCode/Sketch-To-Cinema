@@ -265,7 +265,7 @@ function HistoryCard({ item, onDelete }: { item: HistoryItem, onDelete: (id: str
           <div className="flex items-center justify-between h-8">
             <div className="flex items-center gap-2">
               <span className="font-mono text-xs font-bold text-black/30">03 /</span>
-              <span className="text-[10px] uppercase tracking-[0.15em] font-mono text-blue-500">Cinematic Motion (Veo)</span>
+              <span className="text-[10px] uppercase tracking-[0.15em] font-mono text-black/50">Cinematic Motion (Veo)</span>
             </div>
             <div className="flex items-center gap-2.5">
               <button 
@@ -286,7 +286,7 @@ function HistoryCard({ item, onDelete }: { item: HistoryItem, onDelete: (id: str
               </button>
               <button 
                 onClick={downloadVideo}
-                className="flex items-center gap-1.5 px-2.5 py-1 bg-zinc-50 hover:bg-zinc-100 text-zinc-700 rounded text-[9px] uppercase font-mono font-bold tracking-widest transition-all border border-black/5"
+                className="flex items-center gap-1 text-[9px] uppercase font-mono text-black/50 hover:text-black hover:underline transition-all"
               >
                 <Download className="w-2.5 h-2.5" /> Movie (MP4)
               </button>
