@@ -91,7 +91,7 @@ export async function generateNanoBananaImage(prompt: string): Promise<string> {
   throw new Error("No image generated");
 }
 
-export async function generateVeoVideo(prompt: string, base64Image: string): Promise<string> {
+export async function generateVeoVideo(prompt: string, base64Image: string): Promise<Blob> {
   const ai = getAI();
   const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
   
@@ -130,13 +130,27 @@ export async function generateVeoVideo(prompt: string, base64Image: string): Pro
     throw new Error("Video generation failed: No download link provided in response");
   }
 
+  // Ensure alt=media is in the URL to download bytes, not metadata!
+  const urlObj = new URL(downloadLink);
+  if (!urlObj.searchParams.has('alt')) {
+    urlObj.searchParams.set('alt', 'media');
+  }
+
+  // Determine the correct auth header
+  const fetchHeaders: Record<string, string> = {};
+  if (apiKey) {
+    if (apiKey.startsWith('eyJ')) {
+      fetchHeaders['Authorization'] = `Bearer ${apiKey}`;
+    } else {
+      fetchHeaders['x-goog-api-key'] = apiKey;
+    }
+  }
+
   // 3. Fetch the video file
-  console.log("Fetching video from URI:", downloadLink);
-  const videoResponse = await fetch(downloadLink, {
+  console.log("Fetching video from URI:", urlObj.toString());
+  const videoResponse = await fetch(urlObj.toString(), {
     method: 'GET',
-    headers: {
-      'x-goog-api-key': apiKey!,
-    },
+    headers: Object.keys(fetchHeaders).length > 0 ? fetchHeaders : undefined,
   });
 
   if (!videoResponse.ok) {
@@ -146,5 +160,5 @@ export async function generateVeoVideo(prompt: string, base64Image: string): Pro
   }
 
   const blob = await videoResponse.blob();
-  return URL.createObjectURL(blob);
+  return blob;
 }

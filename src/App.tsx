@@ -25,8 +25,14 @@ import {
   Loader2,
   Fullscreen,
   Volume2,
+  History,
+  Trash2,
+  Clock,
+  Calendar,
+  Copy
 } from 'lucide-react';
 import { interpretSketch, InterpretationResult, generateNanoBananaImage, generateVeoVideo } from './services/ai';
+import { HistoryItem, saveHistoryItem, getAllHistory, deleteHistoryItem } from './services/history';
 import SketchCanvas from './components/SketchCanvas';
 import { downloadBase64 } from './lib/utils';
 
@@ -109,6 +115,215 @@ declare global {
   }
 }
 
+// History Card Component
+function HistoryCard({ item, onDelete }: { item: HistoryItem, onDelete: (id: string) => void | Promise<void>, key?: any }) {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [copiedType, setCopiedType] = useState<'intent' | 'image' | 'video' | null>(null);
+
+  const date = new Date(item.timestamp).toLocaleDateString();
+  const time = new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  const togglePlay = () => {
+    if (!videoUrl && item.videoBlob) {
+      setVideoUrl(URL.createObjectURL(item.videoBlob));
+    }
+    setIsPlaying(!isPlaying);
+  };
+
+  const downloadVideo = () => {
+    if (!item.videoBlob) return;
+    const url = URL.createObjectURL(item.videoBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = item.videoFileName;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const downloadSketch = () => {
+    downloadBase64(item.sketch, `sketch-${item.timestamp}.png`);
+  };
+
+  const downloadImage = () => {
+    downloadBase64(item.generatedImage, `projection-${item.timestamp}.png`);
+  };
+
+  const copyToClipboard = (text: string, type: 'intent' | 'image' | 'video') => {
+    navigator.clipboard.writeText(text);
+    setCopiedType(type);
+    setTimeout(() => setCopiedType(null), 2000);
+  };
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0, y: 30 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      className="glass-panel rounded-lg border border-black/10 overflow-hidden flex flex-col bg-white shadow-sm hover:shadow-md transition-shadow"
+    >
+      {/* Station Control Header */}
+      <div className="p-4 border-b border-black/5 bg-zinc-50 flex flex-wrap justify-between items-center gap-3">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 bg-black/5 px-2.5 py-1 rounded font-mono text-[9px] text-black/60 uppercase tracking-widest">
+            <Clock className="w-3 h-3 text-black/40" />
+            <span>SESSION: #{item.id.slice(0, 8)}</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-black/40 text-[10px] uppercase font-mono tracking-wider">
+            <Calendar className="w-3 h-3 text-black/30" />
+            <span>{date} // {time}</span>
+          </div>
+        </div>
+
+        <button 
+          onClick={() => onDelete(item.id)}
+          className="flex items-center gap-1.5 px-3 py-1 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200/50 rounded text-[10px] uppercase font-mono tracking-widest transition-all"
+        >
+          <Trash2 className="w-3 h-3" /> Delete Record
+        </button>
+      </div>
+
+      {/* Grid of 3 Steps */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 border-b border-black/5">
+        
+        {/* Step 1: Founding Sketch */}
+        <div className="p-5 flex flex-col gap-4 border-b lg:border-b-0 lg:border-r border-black/5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-xs font-bold text-black/30">01 /</span>
+              <span className="text-[10px] uppercase tracking-[0.15em] font-mono text-black/50">Founding Sketch</span>
+            </div>
+            <button 
+              onClick={downloadSketch}
+              className="flex items-center gap-1 text-[9px] uppercase font-mono text-black/50 hover:text-black hover:underline transition-all"
+            >
+              <Download className="w-2.5 h-2.5" /> Sketch
+            </button>
+          </div>
+
+          <div className="relative aspect-[16/10] bg-zinc-50 rounded border border-black/5 p-4 flex items-center justify-center overflow-hidden">
+            <img src={item.sketch} alt="Input sketch" className="w-full h-full object-contain mix-blend-multiply opacity-75" />
+          </div>
+
+          <div className="flex-1 flex flex-col gap-1.5 min-h-[90px]">
+            <div className="flex items-center justify-between">
+              <span className="text-[9px] font-mono text-black/30 uppercase tracking-widest">Original Intent Context</span>
+              <button 
+                onClick={() => copyToClipboard(item.userContext || "Zero-shot projection", 'intent')}
+                className="text-black/30 hover:text-black transition-colors"
+                title="Copy context string"
+              >
+                {copiedType === 'intent' ? <span className="text-[8px] font-mono text-green-600">Copied!</span> : <Copy className="w-3 h-3" />}
+              </button>
+            </div>
+            <div className="bg-zinc-50 border border-black/5 rounded p-3 h-20 overflow-y-auto scrollbar-thin text-xs text-black/70 italic">
+              {item.userContext || "Zero-shot projection (No custom instructions or context supplied)"}
+            </div>
+          </div>
+        </div>
+
+        {/* Step 2: High-Fidelity Projection */}
+        <div className="p-5 flex flex-col gap-4 border-b lg:border-b-0 lg:border-r border-black/5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-xs font-bold text-black/30">02 /</span>
+              <span className="text-[10px] uppercase tracking-[0.15em] font-mono text-black/50">Nano Projection</span>
+            </div>
+            <button 
+              onClick={downloadImage}
+              className="flex items-center gap-1 text-[9px] uppercase font-mono text-black/50 hover:text-black hover:underline transition-all"
+            >
+              <Download className="w-2.5 h-2.5" /> Projection
+            </button>
+          </div>
+
+          <div className="relative aspect-[16/10] bg-black rounded border border-black/5 overflow-hidden">
+            <img src={item.generatedImage} alt="Nano Banana original image projection" className="w-full h-full object-cover" />
+          </div>
+
+          <div className="flex-1 flex flex-col gap-1.5 min-h-[90px]">
+            <div className="flex items-center justify-between">
+              <span className="text-[9px] font-mono text-black/30 uppercase tracking-widest">Image Logic Script</span>
+              <button 
+                onClick={() => copyToClipboard(item.imagePrompt, 'image')}
+                className="text-black/30 hover:text-black transition-colors"
+                title="Copy prompt logic"
+              >
+                {copiedType === 'image' ? <span className="text-[8px] font-mono text-green-600">Copied!</span> : <Copy className="w-3 h-3" />}
+              </button>
+            </div>
+            <div className="bg-zinc-50 border border-black/5 rounded p-3 h-20 overflow-y-auto scrollbar-thin text-[10px] font-mono text-black/60 leading-relaxed scrollbar-thumb-zinc-200">
+              {item.imagePrompt}
+            </div>
+          </div>
+        </div>
+
+        {/* Step 3: Cinematic Video (Veo) */}
+        <div className="p-5 flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-xs font-bold text-black/30">03 /</span>
+              <span className="text-[10px] uppercase tracking-[0.15em] font-mono text-blue-500">Cinematic Motion (Veo)</span>
+            </div>
+            <button 
+              onClick={downloadVideo}
+              className="flex items-center gap-1 text-[9px] uppercase font-mono text-blue-500 hover:text-blue-700 hover:underline transition-all font-bold"
+            >
+              <Download className="w-2.5 h-2.5" /> Movie (MP4)
+            </button>
+          </div>
+
+          <div className="relative aspect-[16/10] bg-zinc-900 rounded border border-black/5 overflow-hidden flex items-center justify-center">
+            {isPlaying && videoUrl ? (
+              <video 
+                src={videoUrl} 
+                autoPlay 
+                loop 
+                muted 
+                playsInline 
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <img 
+                src={item.generatedImage} 
+                alt="Video thumbnail preview" 
+                className="w-full h-full object-cover opacity-65"
+              />
+            )}
+            
+            {/* Playback Control Trigger Overlay */}
+            <div className="absolute inset-x-0 bottom-0 top-0 flex items-center justify-center bg-black/20 hover:bg-black/40 transition-all group">
+              <button 
+                onClick={togglePlay}
+                className="flex items-center gap-2 bg-black/80 hover:bg-black text-white px-4 py-2 rounded font-mono text-[9px] uppercase tracking-widest transition-transform transform hover:scale-105 shadow-lg border border-white/10"
+              >
+                {isPlaying ? <span className="font-bold">Pause Cinematic</span> : <><Play className="w-3 h-3 fill-current" /> <span className="font-bold">Play Cinematic</span></>}
+              </button>
+            </div>
+          </div>
+
+          <div className="flex-1 flex flex-col gap-1.5 min-h-[90px]">
+            <div className="flex items-center justify-between">
+              <span className="text-[9px] font-mono text-black/30 uppercase tracking-widest">Motion & Audio Script</span>
+              <button 
+                onClick={() => copyToClipboard(item.videoPrompt, 'video')}
+                className="text-black/30 hover:text-black transition-colors"
+                title="Copy audio / cue directions"
+              >
+                {copiedType === 'video' ? <span className="text-[8px] font-mono text-green-600">Copied!</span> : <Copy className="w-3 h-3" />}
+              </button>
+            </div>
+            <div className="bg-zinc-50 border border-black/5 rounded p-3 h-20 overflow-y-auto scrollbar-thin text-[10px] font-mono text-black/60 leading-relaxed scrollbar-thumb-zinc-200">
+              {item.videoPrompt}
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </motion.div>
+  );
+}
+
 export default function App() {
   const [sketch, setSketch] = useState<string | null>(null);
   const [inputMode, setInputMode] = useState<'upload' | 'draw'>('draw');
@@ -126,10 +341,22 @@ export default function App() {
   const [videoStatusMsg, setVideoStatusMsg] = useState('Initializing Veo Core...');
   const [error, setError] = useState<string | null>(null);
   const [hasApiKey, setHasApiKey] = useState(false);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [canvasRefKey, setCanvasRefKey] = useState(0);
 
   useEffect(() => {
     checkApiKey();
+    loadHistory();
   }, []);
+
+  const loadHistory = async () => {
+    try {
+      const items = await getAllHistory();
+      setHistory(items.sort((a, b) => b.timestamp - a.timestamp));
+    } catch (err) {
+      console.error("Failed to load history:", err);
+    }
+  };
 
   const checkApiKey = async () => {
     if (window.aistudio) {
@@ -251,9 +478,25 @@ export default function App() {
         await handleSelectKey();
       }
       
-      const url = await generateVeoVideo(editableVideoPrompt, generatedImage);
+      const blob = await generateVeoVideo(editableVideoPrompt, generatedImage);
+      const url = URL.createObjectURL(blob);
       setVideoUrl(url);
       setVideoGenerated(true);
+
+      // Save to history
+      const historyItem: HistoryItem = {
+        id: crypto.randomUUID(),
+        timestamp: Date.now(),
+        sketch: sketch!,
+        userContext: userContext,
+        imagePrompt: editableImagePrompt,
+        generatedImage: generatedImage!,
+        videoPrompt: editableVideoPrompt,
+        videoBlob: blob,
+        videoFileName: `veo3-cinematic-${Date.now()}.mp4`
+      };
+      await saveHistoryItem(historyItem);
+      setHistory(prev => [historyItem, ...prev]);
     } catch (err: any) {
       console.error(err);
       let errMsg = err.message || "Video generation failed.";
@@ -286,6 +529,7 @@ export default function App() {
     setVideoGenerated(false);
     setStage('upload');
     setError(null);
+    setCanvasRefKey(prev => prev + 1);
   };
 
   return (
@@ -329,19 +573,29 @@ export default function App() {
               </span>
               <div className="flex justify-between items-end">
                 <h2 className="font-display text-4xl font-light">The Founding Sketch</h2>
-                <div className="flex bg-black/5 p-1 rounded-md border border-black/10">
-                  <button 
-                    onClick={() => { setInputMode('draw'); setSketch(null); }}
-                    className={`px-3 py-1 rounded text-[10px] uppercase tracking-widest transition-all ${inputMode === 'draw' ? 'bg-black text-white font-bold' : 'text-black/40 hover:text-black'}`}
-                  >
-                    Draw
-                  </button>
-                  <button 
-                    onClick={() => { setInputMode('upload'); setSketch(null); }}
-                    className={`px-3 py-1 rounded text-[10px] uppercase tracking-widest transition-all ${inputMode === 'upload' ? 'bg-black text-white font-bold' : 'text-black/40 hover:text-black'}`}
-                  >
-                    Upload
-                  </button>
+                <div className="flex items-center gap-4">
+                  {(sketch || interpretation || generatedImage) && (
+                    <button 
+                      onClick={reset}
+                      className="flex items-center gap-2 text-[10px] uppercase font-mono text-black/40 hover:text-red-500 transition-colors"
+                    >
+                      <Trash2 className="w-3 h-3" /> Start Fresh
+                    </button>
+                  )}
+                  <div className="flex bg-black/5 p-1 rounded-md border border-black/10">
+                    <button 
+                      onClick={() => { setInputMode('draw'); setSketch(null); }}
+                      className={`px-3 py-1 rounded text-[10px] uppercase tracking-widest transition-all ${inputMode === 'draw' ? 'bg-black text-white font-bold' : 'text-black/40 hover:text-black'}`}
+                    >
+                      Draw
+                    </button>
+                    <button 
+                      onClick={() => { setInputMode('upload'); setSketch(null); }}
+                      className={`px-3 py-1 rounded text-[10px] uppercase tracking-widest transition-all ${inputMode === 'upload' ? 'bg-black text-white font-bold' : 'text-black/40 hover:text-black'}`}
+                    >
+                      Upload
+                    </button>
+                  </div>
                 </div>
               </div>
               <p className="text-black/60 text-sm max-w-md">
@@ -391,7 +645,7 @@ export default function App() {
                   </div>
                 )
               ) : (
-                <SketchCanvas onSave={handleSketchSave} className="w-full" />
+                <SketchCanvas key={canvasRefKey} onSave={handleSketchSave} className="w-full" />
               )}
             </div>
 
@@ -636,6 +890,48 @@ export default function App() {
             </AnimatePresence>
           </section>
         </div>
+
+        {/* History Section */}
+        <section className="mt-24 pt-12 border-t border-black/5">
+          <div className="flex items-center justify-between mb-12">
+            <div className="flex flex-col gap-1">
+              <span className="font-mono text-[10px] uppercase text-black/30 tracking-widest flex items-center gap-2">
+                <History className="w-3 h-3" /> Archive Terminal
+              </span>
+              <h2 className="font-display text-3xl font-light">Project History</h2>
+            </div>
+          </div>
+
+          {history.length === 0 ? (
+            <div className="glass-panel border-dashed border-2 border-black/15 rounded-lg p-12 text-center flex flex-col items-center justify-center bg-black/[0.01]">
+              <div className="w-12 h-12 rounded-full border border-black/10 flex items-center justify-center mb-4 bg-zinc-50">
+                <History className="w-5 h-5 text-black/30" />
+              </div>
+              <h3 className="font-display text-sm uppercase tracking-wider text-black/70 mb-1">ARCHIVE COLD STORAGE // STANDBY</h3>
+              <p className="text-xs text-black/40 max-w-md mx-auto leading-relaxed">
+                No active session experiments have been logged in local IndexedDB database. Complete your first "Sketch-to-Cinema" process above (generating an image projection and running motion synthesis), and you will find your complete timeline of sketches, visual images, motion guides, and downloads recorded here.
+              </p>
+              <div className="mt-6 flex gap-6 text-[8px] font-mono uppercase tracking-[0.2em] text-black/30">
+                <span>DATABASE STATUS: LOGS_VACANT</span>
+                <span>//</span>
+                <span>CORE: ONLINE</span>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-12">
+              {history.map((item: HistoryItem) => (
+                <HistoryCard 
+                  key={item.id} 
+                  item={item} 
+                  onDelete={async (id) => {
+                    await deleteHistoryItem(id);
+                    setHistory(prev => prev.filter(h => h.id !== id));
+                  }} 
+                />
+              ))}
+            </div>
+          )}
+        </section>
       </main>
 
       {/* Footer Info */}

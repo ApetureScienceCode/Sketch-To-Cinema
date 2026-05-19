@@ -4,6 +4,7 @@ import { Eraser, Pencil, Trash2 } from 'lucide-react';
 interface SketchCanvasProps {
   onSave: (base64: string) => void;
   className?: string;
+  key?: any;
 }
 
 export default function SketchCanvas({ onSave, className }: SketchCanvasProps) {
