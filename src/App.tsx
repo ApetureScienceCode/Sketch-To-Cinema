@@ -190,7 +190,7 @@ function HistoryCard({ item, onDelete }: { item: HistoryItem, onDelete: (id: str
         
         {/* Step 1: Founding Sketch */}
         <div className="p-5 flex flex-col gap-4 border-b lg:border-b-0 lg:border-r border-black/5">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between h-8">
             <div className="flex items-center gap-2">
               <span className="font-mono text-xs font-bold text-black/30">01 /</span>
               <span className="text-[10px] uppercase tracking-[0.15em] font-mono text-black/50">Founding Sketch</span>
@@ -226,7 +226,7 @@ function HistoryCard({ item, onDelete }: { item: HistoryItem, onDelete: (id: str
 
         {/* Step 2: High-Fidelity Projection */}
         <div className="p-5 flex flex-col gap-4 border-b lg:border-b-0 lg:border-r border-black/5">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between h-8">
             <div className="flex items-center gap-2">
               <span className="font-mono text-xs font-bold text-black/30">02 /</span>
               <span className="text-[10px] uppercase tracking-[0.15em] font-mono text-black/50">Nano Projection</span>
@@ -262,20 +262,42 @@ function HistoryCard({ item, onDelete }: { item: HistoryItem, onDelete: (id: str
 
         {/* Step 3: Cinematic Video (Veo) */}
         <div className="p-5 flex flex-col gap-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between h-8">
             <div className="flex items-center gap-2">
               <span className="font-mono text-xs font-bold text-black/30">03 /</span>
               <span className="text-[10px] uppercase tracking-[0.15em] font-mono text-blue-500">Cinematic Motion (Veo)</span>
             </div>
-            <button 
-              onClick={downloadVideo}
-              className="flex items-center gap-1 text-[9px] uppercase font-mono text-blue-500 hover:text-blue-700 hover:underline transition-all font-bold"
-            >
-              <Download className="w-2.5 h-2.5" /> Movie (MP4)
-            </button>
+            <div className="flex items-center gap-2.5">
+              <button 
+                onClick={togglePlay}
+                className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded text-[9px] uppercase font-mono font-bold tracking-widest transition-all border border-blue-200/50"
+              >
+                {isPlaying ? (
+                  <>
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                    <span>Pause</span>
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-2 h-2 fill-current" />
+                    <span>Play</span>
+                  </>
+                )}
+              </button>
+              <button 
+                onClick={downloadVideo}
+                className="flex items-center gap-1.5 px-2.5 py-1 bg-zinc-50 hover:bg-zinc-100 text-zinc-700 rounded text-[9px] uppercase font-mono font-bold tracking-widest transition-all border border-black/5"
+              >
+                <Download className="w-2.5 h-2.5" /> Movie (MP4)
+              </button>
+            </div>
           </div>
 
-          <div className="relative aspect-[16/10] bg-zinc-900 rounded border border-black/5 overflow-hidden flex items-center justify-center">
+          <button 
+            onClick={togglePlay}
+            className="text-left relative aspect-[16/10] bg-zinc-900 rounded border border-black/5 overflow-hidden flex items-center justify-center cursor-pointer group"
+            title="Click to play / pause cinematic presentation"
+          >
             {isPlaying && videoUrl ? (
               <video 
                 src={videoUrl} 
@@ -289,20 +311,10 @@ function HistoryCard({ item, onDelete }: { item: HistoryItem, onDelete: (id: str
               <img 
                 src={item.generatedImage} 
                 alt="Video thumbnail preview" 
-                className="w-full h-full object-cover opacity-65"
+                className="w-full h-full object-cover opacity-65 group-hover:opacity-75 transition-opacity"
               />
             )}
-            
-            {/* Playback Control Trigger Overlay */}
-            <div className="absolute inset-x-0 bottom-0 top-0 flex items-center justify-center bg-black/20 hover:bg-black/40 transition-all group">
-              <button 
-                onClick={togglePlay}
-                className="flex items-center gap-2 bg-black/80 hover:bg-black text-white px-4 py-2 rounded font-mono text-[9px] uppercase tracking-widest transition-transform transform hover:scale-105 shadow-lg border border-white/10"
-              >
-                {isPlaying ? <span className="font-bold">Pause Cinematic</span> : <><Play className="w-3 h-3 fill-current" /> <span className="font-bold">Play Cinematic</span></>}
-              </button>
-            </div>
-          </div>
+          </button>
 
           <div className="flex-1 flex flex-col gap-1.5 min-h-[90px]">
             <div className="flex items-center justify-between">
