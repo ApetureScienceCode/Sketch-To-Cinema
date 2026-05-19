@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useRef, useEffect, ChangeEvent } from 'react';
+import { useState, useRef, useEffect, ChangeEvent, FormEvent } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Upload, 
@@ -25,6 +25,8 @@ import {
   Loader2,
   Fullscreen,
   Volume2,
+  Lock,
+  Unlock,
   History,
   Trash2,
   Clock,
@@ -325,6 +327,12 @@ function HistoryCard({ item, onDelete }: { item: HistoryItem, onDelete: (id: str
 }
 
 export default function App() {
+  const [passcode, setPasscode] = useState('');
+  const [passcodeError, setPasscodeError] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    return localStorage.getItem('sketch_cinema_auth') === 'true';
+  });
+
   const [sketch, setSketch] = useState<string | null>(null);
   const [inputMode, setInputMode] = useState<'upload' | 'draw'>('draw');
   const [userContext, setUserContext] = useState('');
@@ -343,6 +351,24 @@ export default function App() {
   const [hasApiKey, setHasApiKey] = useState(false);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [canvasRefKey, setCanvasRefKey] = useState(0);
+
+  const handlePasscodeSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    if (passcode.trim() === 'FCAT2026') {
+      localStorage.setItem('sketch_cinema_auth', 'true');
+      setIsAuthenticated(true);
+      setPasscodeError(null);
+    } else {
+      setPasscodeError('ACCESS DENIED. PLEASE VERIFY CREDENTIALS.');
+      setPasscode('');
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('sketch_cinema_auth');
+    setIsAuthenticated(false);
+    setPasscode('');
+  };
 
   useEffect(() => {
     checkApiKey();
@@ -532,6 +558,101 @@ export default function App() {
     setCanvasRefKey(prev => prev + 1);
   };
 
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen font-sans selection:bg-black/20 bg-zinc-50 relative flex items-center justify-center overflow-hidden">
+        {/* Background & Effects */}
+        <div className="fixed inset-0 studio-grid opacity-20 pointer-events-none" />
+        <div className="fixed inset-0 bg-radial-at-t from-zinc-200/50 to-transparent pointer-events-none" />
+        <div className="scanline" />
+
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95, y: 15 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
+          className="relative z-50 w-full max-w-md mx-4"
+        >
+          <div className="glass-panel rounded-lg border border-black/10 p-8 shadow-xl bg-white/70 backdrop-blur-xl relative overflow-hidden flex flex-col gap-6">
+            
+            {/* Top Indicator */}
+            <div className="flex justify-between items-center text-[9px] font-mono text-black/40 uppercase tracking-widest border-b border-black/5 pb-4">
+              <span className="flex items-center gap-1.5 font-bold text-orange-600">
+                <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />
+                SYSTEM LOCK
+              </span>
+              <span>EST. 2026</span>
+            </div>
+
+            {/* Emblem and Title */}
+            <div className="flex flex-col items-center gap-3 my-2 text-center">
+              <div className="w-12 h-12 bg-black flex items-center justify-center rounded-sm shadow-md">
+                <Layers className="text-white w-6 h-6" />
+              </div>
+              <div>
+                <h1 className="font-display font-bold text-2xl uppercase tracking-tighter">Sketch-to-Cinema</h1>
+                <p className="text-[10px] uppercase font-mono text-black/40 tracking-[0.2em] mt-1">Creative Director Terminal</p>
+              </div>
+            </div>
+
+            {/* Restricted access notice */}
+            <div className="bg-black/[0.02] border border-black/5 rounded p-4 font-mono text-[10px] text-black/60 leading-relaxed flex items-start gap-3">
+              <Lock className="w-4 h-4 text-black/40 mt-0.5 shrink-0" />
+              <div>
+                <p className="font-bold text-black/80 mb-1 uppercase">ACCESS RESTRICTED</p>
+                <p>Please enter the secure authorization passcode provided for FCAT2026 session deployment to unlock the generator pipelines and the archive console.</p>
+              </div>
+            </div>
+
+            {/* Error Message */}
+            {passcodeError && (
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="bg-red-500/10 border border-red-200 text-red-600 p-3 rounded text-[11px] font-mono text-center"
+              >
+                ⚠ {passcodeError}
+              </motion.div>
+            )}
+
+            {/* Security Passcode Entry */}
+            <form onSubmit={handlePasscodeSubmit} className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[9px] font-mono uppercase text-black/40 tracking-widest font-bold">
+                  Enter Password Credentials
+                </label>
+                <input
+                  type="password"
+                  value={passcode}
+                  onChange={(e) => {
+                    setPasscode(e.target.value);
+                    if (passcodeError) setPasscodeError(null);
+                  }}
+                  placeholder="••••••••••••"
+                  autoFocus
+                  className="w-full bg-black/[0.03] border border-black/15 focus:border-black rounded px-4 py-3 font-mono text-sm tracking-[0.25em] text-center text-black placeholder-black/20 outline-none transition-all"
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="w-full bg-black hover:bg-zinc-800 text-white py-3 rounded text-[10px] uppercase font-bold tracking-[0.2em] transition-all transform active:scale-[0.99] flex items-center justify-center gap-2"
+              >
+                <span>Initialize Platform</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </form>
+
+            <div className="border-t border-black/5 pt-4 text-center">
+              <p className="text-[9px] font-mono text-black/30 uppercase tracking-[0.15em]">
+                AUTHENTICATION PORT // SECURE CONTROL
+              </p>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen font-sans selection:bg-black/20">
       {/* Background & Effects */}
@@ -551,15 +672,26 @@ export default function App() {
           </div>
         </div>
 
-        {!hasApiKey && (
+        <div className="flex items-center gap-3">
+          {!hasApiKey && (
+            <button 
+              onClick={handleSelectKey}
+              className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-black px-4 py-2 rounded-full font-bold text-xs uppercase tracking-wider transition-colors"
+            >
+              <Key className="w-4 h-4" />
+              Select API Key
+            </button>
+          )}
+
           <button 
-            onClick={handleSelectKey}
-            className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-black px-4 py-2 rounded-full font-bold text-xs uppercase tracking-wider transition-colors"
+            onClick={handleLogout}
+            className="flex items-center gap-2 bg-black/5 hover:bg-black/10 text-black/60 hover:text-black border border-black/10 px-3 py-1.5 rounded font-mono text-[9px] uppercase tracking-widest transition-all"
+            title="Lock terminal and sign out"
           >
-            <Key className="w-4 h-4" />
-            Select API Key
+            <Lock className="w-3 h-3" />
+            Lock Session
           </button>
-        )}
+        </div>
       </header>
 
       <main className="relative z-40 container mx-auto px-6 py-12 max-w-7xl">
