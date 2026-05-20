@@ -611,7 +611,7 @@ export default function App() {
               <Lock className="w-4 h-4 text-black/40 mt-0.5 shrink-0" />
               <div>
                 <p className="font-bold text-black/80 mb-1 uppercase">ACCESS RESTRICTED</p>
-                <p>Unauthorized access to or use of this system is prohibited. All access and use may be monitored and recorded.</p>
+                <p>Please enter the secure authorization passcode provided for FCAT2026 session deployment to unlock the generator pipelines and the archive console.</p>
               </div>
             </div>
 
